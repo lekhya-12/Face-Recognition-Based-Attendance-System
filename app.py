@@ -1,10 +1,13 @@
-from flask import Flask,render_template,request,flash,jsonify,redirect,url_for,session,send_file
+from flask import Flask,render_template,request,flash,jsonify,redirect,url_for,session,send_file,make_response
 import pickle
 import pandas as pd
 import cv2
 import numpy as np
 import face_recognition
 import os
+import io
+import time
+import random
 import pickle
 from datetime import datetime
 from datetime import date
@@ -225,6 +228,9 @@ def download_attendance():
     conn = sqlite3.connect('information.db')
     cursor = conn.cursor()
 
+    conn.execute("PRAGMA foreign_keys = ON;")  
+    conn.commit()
+
     query = "SELECT rollno, name, time, date, subject FROM Attendance WHERE 1=1"
     params = []
 
@@ -244,10 +250,18 @@ def download_attendance():
 
     df = pd.DataFrame(data, columns=["Roll Number", "Student Name", "Time", "Date", "Subject"])
 
-    filename = "attendance_report.xlsx"
-    df.to_excel(filename, index=False)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    
+    output.seek(0)
 
-    return send_file(filename, as_attachment=True)
+    timestamp = int(time.time())
+    rand_num = random.randint(1000, 9999)  
+    filename = f"attendance_report_{timestamp}_{rand_num}.xlsx"
+
+    response = make_response(send_file(output, as_attachment=True, attachment_filename=filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+    return response
 
 @app.route('/mark_attendance_page',methods=["GET","POST"])
 def mark_attendance_page():

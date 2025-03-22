@@ -261,13 +261,16 @@
         }
 
     function downloadAttendance() {
-        let date = document.getElementById("date").value;
-        let month = document.getElementById("month").value;
-        let subject = document.getElementById("subject").value;
+    let date = document.getElementById("date").value;
+    let month = document.getElementById("month").value;
+    let subject = document.getElementById("subject").value;
 
-        let queryParams = `?date=${date}&month=${month}&subject=${subject}`;
-        window.location.href = "/download_attendance" + queryParams;
-    }
+    let timestamp = new Date().getTime(); 
+    let queryParams = `?date=${date}&month=${month}&subject=${subject}&t=${timestamp}`;
+
+    window.location.href = "/download_attendance" + queryParams;
+}
+
 
     function clearFilters() {
         document.getElementById("date").value = "";
