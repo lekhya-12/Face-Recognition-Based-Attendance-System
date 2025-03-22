@@ -113,16 +113,32 @@ def markData(name, subject):
     conn = sqlite3.connect('information.db')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT roll_no FROM Students WHERE name=?", (name.upper(),))
-    print("QUERY: ")
-    print(name)
+    cursor.execute("SELECT roll_no, year FROM Students WHERE name=?", (name.upper(),))
     student = cursor.fetchone()
 
     if student is None:
         print(f"No student record found for {name}")
+        conn.close()
         return
 
-    rollno = student[0]
+    rollno, student_year = student
+
+    # Fetch subject year
+    cursor.execute("SELECT year FROM Subjects WHERE name=?", (subject.upper(),))
+    subject_record = cursor.fetchone()
+
+    if subject_record is None:
+        print(f"No subject record found for {subject}")
+        conn.close()
+        return
+
+    subject_year = subject_record[0]
+
+    # Check if student year matches subject year
+    if str(student_year) != str(subject_year):
+        print(f"{name} is not in the correct year for subject {subject}")
+        conn.close()
+        return
 
     cursor.execute("INSERT INTO Attendance (ROLLNO, NAME, Subject, Time, Date) VALUES (?, ?, ?, ?, ?)",
                        (rollno, name.upper(), subject.upper(), dtString, today))

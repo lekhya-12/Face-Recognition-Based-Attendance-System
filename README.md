@@ -1,4 +1,4 @@
-## Face Recognition based Attendance Management System (FRAMS)
+## Face Recognition based Attendance Management System (FaceIT)
 Face Recognition based Attendance Management System with a Flask web application.
 
 ### Table of Contents
