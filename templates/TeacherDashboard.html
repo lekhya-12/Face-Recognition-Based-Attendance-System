@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #e0d8fe;
+        }
+
+        .header {
+            background: #4B0082;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h2 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 24px;
+        }
+
+        .menu-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout-btn, .dashboard-btn, .profile-btn {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: none;
+            color: white;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+
+        .logout-btn:hover, .dashboard-btn:hover, .profile-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+       
+        .head h1 {
+            text-align: center;
+            color: #4B0082;
+            font-weight: 600;
+            font-size: 40px;
+        }
+
+        .main-container {
+            display: flex;
+            justify-content: space-around;
+            padding: 40px;
+            align-items: flex-start;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 25px;
+            width: 230px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.1);
+            transition: 0.3s ease;
+            margin-top: 45px;
+        }
+
+        .stat-box:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-box h3 {
+            margin: 0;
+            color: #333;
+            font-weight: 500;
+            font-size: 23px;
+        }
+
+        .stat-box p {
+            font-size: 1.6em;
+            color: #4B0082;
+            font-weight: bold;
+        }
+
+        .dashboard-links {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .link-card {
+            background: linear-gradient(135deg, #ffffff, #f3e9ff);
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center;
+            height: 50px;
+            width: 400px;
+            box-shadow: 4px 4px 15px rgba(0, 0, 0, 0.12);
+            transition: 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: #4B0082;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .link-card:hover {
+            transform: translateY(-6px);
+            background: linear-gradient(135deg, #4B0082, #6a0dad);
+            color: white;
+            box-shadow: 0 6px 20px rgba(75, 0, 130, 0.3);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            height: 480px;
+            padding: 45px; 
+            border-radius: 12px;
+            text-align: center;
+            width: 450px;
+            box-shadow: 6px 6px 20px rgba(0, 0, 0, 0.3); 
+            font-size: 24px;
+        }
+
+        .modal-content h3{
+            color: #4B0082;
+            margin-top: 0px;
+            margin-bottom: 45px;
+            font-size: 35px;
+        }
+
+        .close-btn {
+            background: #4B0082;
+            color: white;
+            padding: 10px;
+            font-size: 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: none;
+            margin-top: 30px;
+            width: 55%;
+            height: 10%;
+        }
+
+        .close-btn:hover {
+            background: #6a0dad;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>Teacher Dashboard</h2>
+        <div class="menu-container">
+            <button class="dashboard-btn" onclick="window.location.href='/teacher_dashboard'">Dashboard</button>
+            <button class="logout-btn" onclick="window.location.href='/home'">Logout</button>
+            <button class="profile-btn" onclick="openModal()">Profile</button>
+        </div>
+    </div>
+
+    <div class="head">
+        <h1>Welcome {{ teacher_name }}</h1>
+    </div>
+
+    <div class="main-container">
+        <div class="d-flex flex-column justify-content-text:center">
+            <div class="stat-box">
+                <h3>Total Subjects</h3>
+                <p>{{ total_subjects }}</p>
+            </div>
+            <div class="stat-box">
+                <h3>Total Students</h3>
+                <p>{{ total_students }}</p>
+            </div>
+        </div>
+
+        <div class="dashboard-links">
+            <a href="/view_student" class="link-card">View Student Details</a>
+            <a href="/new_student" class="link-card">Register New Student</a>
+            <a href="/manage_subjects" class="link-card">Manage Subjects</a>
+            <a href="/view_attendance" class="link-card">View Attendance Report</a>
+            <a href="/mark_attendance_page" class="link-card">Mark Attendance</a>
+        </div>
+    </div>
+
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <h3>TEACHER PROFILE</h3>
+            <p><strong>Name:</strong> {{ teacher_name }}</p>
+            <p><strong>Department:</strong> {{ teacher_dept }}</p>
+            <p><strong>Email:</strong> {{ teacher_email }}</p>
+            <p><strong>Phone:</strong> {{ teacher_phn }}</p>
+            <button class="close-btn" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        function openModal() {
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
+    </script>
+
+</body>
+</html>
