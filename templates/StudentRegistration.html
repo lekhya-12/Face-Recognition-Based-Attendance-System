@@ -153,22 +153,32 @@
     <div class="container">
         <div class="registration-card">
             <h2 class="mb-3">Register Student</h2>
-            <form id="register-form" action="/student_register" method="POST">
+            <form id="register-form" action="/student_register" method="POST" class="needs-validation" novalidate>
                 <div class="mb-3 text-start">
-                    <label class="form-label">Name:</label>
-                    <input class="form-control" type="text" id="name" name="name" placeholder="Enter Your Name" required>
+                    <label class="form-label">Full Name:</label>
+                    <input class="form-control" type="text"  name="name" placeholder="Enter Your Name" required>
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Roll Number:</label>
-                    <input class="form-control" type="text" id="rollno" name="rollno" placeholder="Enter Your Roll Number" required>
+                    <input class="form-control" type="text"  name="rollno" placeholder="Enter Your Roll Number" required pattern="^[a-zA-Z0-9]{10}$">
+                    <div class="invalid-feedback">Invalid Roll Number format. Example: 21B81A0501</div>
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Branch:</label>
-                    <input class="form-control" type="text" id="branch" name="branch" placeholder="Enter Your Branch" required>
+                    <select class="form-control" name="branch">
+                        <option value="CSE">CSE</option>
+                        <option value="ECE">ECE</option>
+                        <option value="IT">IT</option>
+                        <option value="CSE-AIML">CSE-AIML</option>
+                        <option value="CSE-DS">CSE-DS</option>
+                        <option value="CSE-CS">CSE-CS</option>
+                        <option value="Mechanical">Mechanical</option>
+                        <option value="Civil">Civil</option>
+                    </select>                
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Year:</label>
-                    <select class="form-control" id="year" name="year">
+                    <select class="form-control"  name="year">
                         <option value="1">1st Year</option>
                         <option value="2">2nd Year</option>
                         <option value="3">3rd Year</option>
@@ -177,15 +187,18 @@
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Email ID:</label>
-                    <input class="form-control" type="email" id="email" name="email" placeholder="Enter Your Email ID" required>
+                    <input class="form-control" type="email"  name="email" placeholder="Enter Your Email ID" required required pattern="^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$">
+                    <div class="invalid-feedback">Email must be from @cvr.ac.in domain.</div>
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Phone Number:</label>
-                    <input class="form-control" type="tel" id="phone_number" name="phone_number" placeholder="Enter Your Phone Number" maxlength="10" pattern="[0-9]{10}" required>
+                    <input class="form-control" type="tel" name="phone_number" placeholder="Enter Your Phone Number" maxlength="10" pattern="^[6789][0-9]{9}$" required>
+                    <div class="invalid-feedback">Phone number must be 10 digits and must being with only 6/7/8/9.</div>
                 </div>
                 <div class="mb-3 text-start">
                     <label class="form-label">Password:</label>
-                    <input class="form-control" type="password" id="password" name="password" placeholder="Enter Your Password" required>
+                    <input class="form-control" type="password" name="password" placeholder="Enter Your Password" required required pattern="^[A-Z](?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7}$">
+                    <div class="invalid-feedback">Password must be 8 characters, start with uppercase, and contain one digit and one symbol.</div>
                 </div>
                 <div class="mb-3">
                     <p>Press <b>SPACE</b> to capture your image and <b>ESC</b> to close the camera.</p>
@@ -219,6 +232,31 @@
                 })
                 .catch(error => console.error("Error:", error));
         });
+
+        (function () {
+        'use strict';
+        const form = document.getElementById('register-form');
+
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault(); 
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated'); 
+        }, false);
+    })();
+
+    document.querySelector("input[name='email']").addEventListener("input", function () {
+        const emailInput = this;
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$/;
+
+        if (emailPattern.test(emailInput.value)) {
+            emailInput.setCustomValidity(""); 
+        } else {
+            emailInput.setCustomValidity("Invalid email domain! Must be @cvr.ac.in");
+        }
+    });
+
         
         window.onload = function() {
             var message = "{{ message }}";

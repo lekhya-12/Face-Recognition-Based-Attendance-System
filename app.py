@@ -79,9 +79,7 @@ def markattendance():
                 faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
                 matchIndex = np.argmin(faceDis)
 
-                # if matches[matchIndex] and faceDis[matchIndex] < 0.6:
-                #     name = classNames[matchIndex].upper()
-                threshold = 0.4  # Adjust if needed
+                threshold = 0.4  
                 if faceDis[matchIndex] < threshold:
                     name = classNames[matchIndex].upper()
                     if (name, subject) not in marked_students:
@@ -89,12 +87,6 @@ def markattendance():
                         marked_students.add((name, subject)) 
                 else:
                     name = "Unknown"
-
-                #     if (name, subject) not in marked_students:
-                #         markData(name, subject)
-                #         marked_students.add((name, subject)) 
-                # else:
-                #     name = 'Unknown'
 
                 y1, x2, y2, x1 = faceLoc
                 y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
@@ -132,7 +124,6 @@ def markData(name, subject):
 
     rollno, student_year = student
 
-    # Fetch subject year
     cursor.execute("SELECT year FROM Subjects WHERE name=?", (subject.upper(),))
     subject_record = cursor.fetchone()
 
@@ -143,7 +134,6 @@ def markData(name, subject):
 
     subject_year = subject_record[0]
 
-    # Check if student year matches subject year
     if str(student_year) != str(subject_year):
         print(f"{name} is not in the correct year for subject {subject}")
         conn.close()
@@ -331,45 +321,29 @@ def teacher_login():
 
     return render_template('TeacherLogin.html',message="Please enter Teacher ID and Password")
 
-@app.route('/teacher_register', methods=['GET', 'POST'])
+@app.route('/teacher_register', methods=['POST'])
 def teacher_register():
-    if request.method == "POST":
-        name = request.form.get('name')
-        tid = request.form.get('tid')
-        dept = request.form.get('dept')
-        email = request.form.get('email')
-        phone_number = request.form.get('phone_number')
-        password = request.form.get('password')
+    name = request.form.get('name')
+    tid = request.form.get('tid')
+    dept = request.form.get('dept')
+    email = request.form.get('email')
+    phone_number = request.form.get('phone_number')
+    password = request.form.get('password')
 
-        tid_pattern = r'^CVR[A-Z]{3}[FM]\d{3}$'
-        if not re.match(tid_pattern, tid):
-            return render_template('TeacherRegister.html', message="Invalid Teacher ID format. Example: CVRCSEF107")
-
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$'
-        if not re.match(email_pattern, email):
-            return render_template('TeacherRegister.html', message="Email must be from @cvr.ac.in domain.")
-
-        password_pattern = r'^[A-Z](?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7}$'
-        if not re.match(password_pattern, password):
-            return render_template('TeacherRegister.html', message="Password must be 8 characters, start with uppercase, and contain one digit and one symbol.")
-
-        conn = sqlite3.connect('information.db')
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT id FROM Teachers WHERE id = ?", (tid,))
-        existing_tid = cursor.fetchone()
-        if existing_tid:
-            conn.close()
-            return render_template('TeacherRegister.html', message="Teacher ID already exists. Please use a different ID.")
-
-        cursor.execute("INSERT INTO Teachers (id, name, dept, email, phone_number, password) VALUES (?, ?, ?, ?, ?, ?)",
-                       (tid, name.upper(), dept.upper(), email, phone_number, password))
-        conn.commit()
+    conn = sqlite3.connect('information.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM Teachers WHERE id = ?", (tid,))
+    existing_tid = cursor.fetchone()
+    if existing_tid:
         conn.close()
+        return render_template('TeacherRegister.html', message="Teacher ID already exists. Please use a different ID.")
 
-        return render_template('TeacherLogin.html', message="Registration successful. Please log in.")
+    cursor.execute("INSERT INTO Teachers (id, name, dept, email, phone_number, password) VALUES (?, ?, ?, ?, ?, ?)",
+                   (tid, name.upper(), dept.upper(), email, phone_number, password))
+    conn.commit()
+    conn.close()
 
-    return render_template('TeacherRegister.html')
+    return render_template('TeacherLogin.html', message="Registration successful. Please log in.")
 
 @app.route("/teacher_dashboard")
 def teacher_dashboard():
@@ -433,19 +407,6 @@ def student_register():
         phone_number = request.form.get('phone_number')
         password = request.form.get('password')
 
-        rollno_pattern = r'^[a-zA-Z0-9]{10}$'
-        if not re.match(rollno_pattern, rollno):
-            return render_template('StudentRegistration.html', message="Roll number must be exactly 10 alphanumeric characters.")
-
-
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$'
-        if not re.match(email_pattern, email):
-            return render_template('StudentRegistration.html', message="Email must be from @cvr.ac.in domain.")
-
-        password_pattern = r'^[A-Z](?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7}$'
-        if not re.match(password_pattern, password):
-            return render_template('StudentRegistration.html', message="Password must be 8 characters, start with uppercase, and contain one digit and one symbol.")
-
         conn = sqlite3.connect('information.db')
         cursor = conn.cursor()
 
@@ -453,10 +414,7 @@ def student_register():
         existing_rollno = cursor.fetchone()
         if existing_rollno:
             conn.close()
-            return """<script>
-                        alert("Roll Number already exists. Please use a different Roll Number.");
-                        window.location.href='/student_register';
-                      </script>"""
+            return render_template('StudentRegistration.html', message="Roll Number already exists. Please use a different Roll Number.")
 
         cursor.execute("INSERT INTO Students (roll_no, name, year, email, phone_number, password, branch) VALUES (?, ?, ?, ?, ?, ?, ?)",
                        (rollno, name.upper(), year, email, phone_number, password, branch.upper()))

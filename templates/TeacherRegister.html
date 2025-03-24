@@ -67,18 +67,26 @@
             background-color: white;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
             text-align: center;
-            width: 500px;
+            width: 600px;
+            text-align: left;
         }
 
         .register-card h2 {
             font-weight: 600;
             color: #4B0082;
+            text-align: center;
         }
 
         .form-control {
             border-radius: 8px;
             padding: 12px;
             font-size: 1rem;
+        }
+
+        .form-label {
+            text-align: left;
+            /* font-weight: 500;
+            margin-bottom: 5px; */
         }
 
         .btn-custom {
@@ -106,6 +114,10 @@
             text-decoration: none;
         }
 
+        p{
+            text-align: center;
+        }
+
         .login-link a:hover {
             text-decoration: underline;
         }
@@ -123,31 +135,82 @@
     <section class="hero-section">
         <div class="register-card">
             <h2>Teacher Registration</h2>
-            <form action="/teacher_register" method="POST">
+            <form id="teacherForm" action="/teacher_register" method="POST" class="needs-validation" novalidate>
                 <div class="mb-3">
-                    <input class="form-control" type="text" name="tid" placeholder="Teacher ID" required>
+                    <label class="form-label">Teacher ID:</label>
+                    <input class="form-control" type="text" name="tid" placeholder="Teacher ID" required pattern="^CVR[A-Z]{3}[FM]\d{3}$">
+                    <div class="invalid-feedback">Invalid Teacher ID format. Example: CVRCSEF107</div>
                 </div>
+            
                 <div class="mb-3">
+                    <label class="form-label">Full Name:</label>
                     <input class="form-control" type="text" name="name" placeholder="Full Name" required>
                 </div>
+            
                 <div class="mb-3">
-                    <input class="form-control" type="text" name="dept" placeholder="Department" required>
+                    <label class="form-label">Department:</label>
+                    <select class="form-control" id="dept" name="dept">
+                        <option value="CSE">CSE</option>
+                        <option value="ECE">ECE</option>
+                        <option value="IT">IT</option>
+                        <option value="CSE-AIML">CSE-AIML</option>
+                        <option value="CSE-DS">CSE-DS</option>
+                        <option value="CSE-CS">CSE-CS</option>
+                        <option value="Mechanical">Mechanical</option>
+                        <option value="Civil">Civil</option>
+                    </select> 
                 </div>
+            
                 <div class="mb-3">
-                    <input class="form-control" type="email" name="email" placeholder="Email" required>
+                    <label class="form-label">Email ID:</label>
+                    <input class="form-control" type="email" name="email" placeholder="Email" required pattern="^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$">
+                    <div class="invalid-feedback">Email must be from @cvr.ac.in domain.</div>
                 </div>
+            
                 <div class="mb-3">
-                    <input class="form-control" type="tel" name="phone_number" placeholder="Phone Number" maxlength="10" pattern="[0-9]{10}" required>
+                    <label class="form-label">Phone Number:</label>
+                    <input class="form-control" type="tel" name="phone_number" placeholder="Phone Number" maxlength="10" pattern="^[6789][0-9]{9}$" required>
+                    <div class="invalid-feedback">Phone number must be 10 digits and must being with only 6/7/8/9.</div>
                 </div>
+            
                 <div class="mb-3">
-                    <input class="form-control" type="password" name="password" placeholder="Password" required>
+                    <label class="form-label">Password:</label>
+                    <input class="form-control" type="password" name="password" placeholder="Password" required pattern="^[A-Z](?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7}$">
+                    <div class="invalid-feedback">Password must be 8 characters, start with uppercase, and contain one digit and one symbol.</div>
                 </div>
+            
                 <button type="submit" class="btn btn-custom">Register</button>
             </form>
+            
+            
             <p class="login-link"><a href="/teacher">Already registered? Login here</a></p>
         </div>
     </section>
     <script>
+        (function () {
+        'use strict';
+        const form = document.getElementById('teacherForm');
+
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault(); 
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated'); 
+        }, false);
+    })();
+
+    document.querySelector("input[name='email']").addEventListener("input", function () {
+        const emailInput = this;
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$/;
+
+        if (emailPattern.test(emailInput.value)) {
+            emailInput.setCustomValidity(""); 
+        } else {
+            emailInput.setCustomValidity("Invalid email domain! Must be @cvr.ac.in");
+        }
+    });
+
         window.onload = function() {
             var message = "{{ message }}";
             if (message) {
@@ -155,6 +218,6 @@
             }
         };
     </script>
-
+    
 </body>
 </html>

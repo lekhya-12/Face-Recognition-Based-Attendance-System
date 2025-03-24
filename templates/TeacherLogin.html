@@ -67,12 +67,14 @@
             background-color: white;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
             text-align: center;
-            width: 400px;
+            width: 500px;
+            text-align: left;
         }
 
         .login-card h2 {
             font-weight: 600;
             color: #4B0082;
+            text-align: center;
         }
 
         .form-control {
@@ -109,6 +111,10 @@
         .register-link a:hover {
             text-decoration: underline;
         }
+
+        p{
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -125,9 +131,11 @@
             <h2>Teacher Login</h2>
             <form action="/teacher_login" method="POST">
                 <div class="mb-3">
+                    <label class="form-label">Teacher ID:</label>
                     <input class="form-control" type="text" name="tid" placeholder="Teacher ID" required>
                 </div>
                 <div class="mb-3">
+                    <label class="form-label">Password:</label>
                     <input class="form-control" type="password" name="password" placeholder="Password" required>
                 </div>
                 <button type="submit" class="btn btn-custom">Login</button>
