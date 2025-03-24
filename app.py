@@ -8,6 +8,7 @@ import os
 import io
 import time
 import random
+import re
 import pickle
 from datetime import datetime
 from datetime import date
@@ -78,14 +79,22 @@ def markattendance():
                 faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
                 matchIndex = np.argmin(faceDis)
 
-                if matches[matchIndex] and faceDis[matchIndex] < 0.6:
+                # if matches[matchIndex] and faceDis[matchIndex] < 0.6:
+                #     name = classNames[matchIndex].upper()
+                threshold = 0.4  # Adjust if needed
+                if faceDis[matchIndex] < threshold:
                     name = classNames[matchIndex].upper()
-
                     if (name, subject) not in marked_students:
                         markData(name, subject)
                         marked_students.add((name, subject)) 
                 else:
-                    name = 'Unknown'
+                    name = "Unknown"
+
+                #     if (name, subject) not in marked_students:
+                #         markData(name, subject)
+                #         marked_students.add((name, subject)) 
+                # else:
+                #     name = 'Unknown'
 
                 y1, x2, y2, x1 = faceLoc
                 y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
@@ -322,27 +331,45 @@ def teacher_login():
 
     return render_template('TeacherLogin.html',message="Please enter Teacher ID and Password")
 
-
 @app.route('/teacher_register', methods=['GET', 'POST'])
 def teacher_register():
     if request.method == "POST":
         name = request.form.get('name')
-        tid=request.form.get('tid')
+        tid = request.form.get('tid')
         dept = request.form.get('dept')
         email = request.form.get('email')
         phone_number = request.form.get('phone_number')
         password = request.form.get('password')
 
+        tid_pattern = r'^CVR[A-Z]{3}[FM]\d{3}$'
+        if not re.match(tid_pattern, tid):
+            return render_template('TeacherRegister.html', message="Invalid Teacher ID format. Example: CVRCSEF107")
+
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$'
+        if not re.match(email_pattern, email):
+            return render_template('TeacherRegister.html', message="Email must be from @cvr.ac.in domain.")
+
+        password_pattern = r'^[A-Z](?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7}$'
+        if not re.match(password_pattern, password):
+            return render_template('TeacherRegister.html', message="Password must be 8 characters, start with uppercase, and contain one digit and one symbol.")
+
         conn = sqlite3.connect('information.db')
-        conn.execute("INSERT INTO Teachers (id,name, dept, email, phone_number, password) VALUES (?,?, ?, ?, ?, ?)",
-                         (tid,name.upper(), dept.upper(), email, phone_number, password))
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id FROM Teachers WHERE id = ?", (tid,))
+        existing_tid = cursor.fetchone()
+        if existing_tid:
+            conn.close()
+            return render_template('TeacherRegister.html', message="Teacher ID already exists. Please use a different ID.")
+
+        cursor.execute("INSERT INTO Teachers (id, name, dept, email, phone_number, password) VALUES (?, ?, ?, ?, ?, ?)",
+                       (tid, name.upper(), dept.upper(), email, phone_number, password))
         conn.commit()
         conn.close()
 
-        return render_template('TeacherLogin.html')
+        return render_template('TeacherLogin.html', message="Registration successful. Please log in.")
 
     return render_template('TeacherRegister.html')
-
 
 @app.route("/teacher_dashboard")
 def teacher_dashboard():
@@ -399,20 +426,45 @@ def student_login():
 def student_register():
     if request.method == "POST":
         name = request.form.get('name')
-        rollno=request.form.get('rollno')
-        branch=request.form.get('branch')
+        rollno = request.form.get('rollno')
+        branch = request.form.get('branch')
         year = request.form.get('year')
         email = request.form.get('email')
         phone_number = request.form.get('phone_number')
         password = request.form.get('password')
 
+        rollno_pattern = r'^[a-zA-Z0-9]{10}$'
+        if not re.match(rollno_pattern, rollno):
+            return render_template('StudentRegistration.html', message="Roll number must be exactly 10 alphanumeric characters.")
+
+
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@cvr\.ac\.in$'
+        if not re.match(email_pattern, email):
+            return render_template('StudentRegistration.html', message="Email must be from @cvr.ac.in domain.")
+
+        password_pattern = r'^[A-Z](?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{7}$'
+        if not re.match(password_pattern, password):
+            return render_template('StudentRegistration.html', message="Password must be 8 characters, start with uppercase, and contain one digit and one symbol.")
+
         conn = sqlite3.connect('information.db')
-        conn.execute("INSERT INTO Students (roll_no, name, year, email, phone_number, password, branch) VALUES (?,?, ?, ?, ?, ?, ?)",
-                         (rollno,name.upper(), year, email, phone_number, password, branch.upper()))
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT roll_no FROM Students WHERE roll_no = ?", (rollno,))
+        existing_rollno = cursor.fetchone()
+        if existing_rollno:
+            conn.close()
+            return """<script>
+                        alert("Roll Number already exists. Please use a different Roll Number.");
+                        window.location.href='/student_register';
+                      </script>"""
+
+        cursor.execute("INSERT INTO Students (roll_no, name, year, email, phone_number, password, branch) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (rollno, name.upper(), year, email, phone_number, password, branch.upper()))
         conn.commit()
         conn.close()
-        update_encodings()
-        return render_template('StudentRegistration.html',message="Student Registered Successfully!")
+
+        update_encodings() 
+        return render_template('StudentRegistration.html', message="Student Registered Successfully!")
 
     return render_template('StudentRegistration.html')
 

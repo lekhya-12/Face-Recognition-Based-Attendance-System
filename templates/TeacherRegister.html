@@ -147,7 +147,14 @@
             <p class="login-link"><a href="/teacher">Already registered? Login here</a></p>
         </div>
     </section>
-
+    <script>
+        window.onload = function() {
+            var message = "{{ message }}";
+            if (message) {
+                alert(message);
+            }
+        };
+    </script>
 
 </body>
 </html>
