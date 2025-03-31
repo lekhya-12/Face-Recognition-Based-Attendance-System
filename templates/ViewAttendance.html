@@ -203,6 +203,14 @@
                 </select>
             </div>
             <div>
+                <label for="status">Status:</label>
+                <select id="status" name="status">
+                    <option value="">Select</option>
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                </select>
+            </div>
+            <div>
                 <button class="btn-custom" onclick="filterAttendance()">Filter</button>
                 <button class="btn-custom btn-secondary" onclick="clearFilters()">Clear</button>
                 <button class="btn-custom btn-success" onclick="downloadAttendance()">Download</button>
@@ -218,6 +226,7 @@
                         <th>Time</th>
                         <th>Date</th>
                         <th>Subject</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="attendance-table"></tbody>
@@ -229,12 +238,14 @@
             let date = document.getElementById("date").value;
             let month = document.getElementById("month").value;
             let subject = document.getElementById("subject").value;
+            let status = document.getElementById("status").value;
             $.ajax({
                 url: "/filter_attendance",
                 method: "POST",
                 contentType: "application/json",
-                data: JSON.stringify({ date, month, subject }),
+                data: JSON.stringify({ date, month, subject,status }),
                 success: function(response) {
+                    console.log(response);
                     let tableBody = document.getElementById("attendance-table");
                     tableBody.innerHTML = "";
 
@@ -248,6 +259,7 @@
                                 <td>${row.time}</td>
                                 <td>${row.date}</td>
                                 <td>${row.subject}</td>
+                                <td>${row.status}</td>
                             </tr>`;
                             tableBody.innerHTML += tr;
                         });
@@ -276,6 +288,7 @@
         document.getElementById("date").value = "";
         document.getElementById("month").value = "";
         document.getElementById("subject").value = "";
+        document.getElementById("status").value = "";
         document.getElementById("attendance-table").innerHTML = "";
     }
     </script>

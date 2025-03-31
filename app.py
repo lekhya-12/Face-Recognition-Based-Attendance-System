@@ -13,6 +13,7 @@ import pickle
 from datetime import datetime
 from datetime import date
 import sqlite3
+import bcrypt
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -28,7 +29,7 @@ conn.execute('''CREATE TABLE IF NOT EXISTS Teachers (
                     phone_number TEXT, 
                     password TEXT)''')
 conn.execute('''CREATE TABLE IF NOT EXISTS Students (
-                    roll_no VARCHAR PRIMARY KEY, 
+                    rollno VARCHAR PRIMARY KEY, 
                     name TEXT, 
                     year TEXT, 
                     email TEXT, 
@@ -41,11 +42,11 @@ conn.execute('''CREATE TABLE IF NOT EXISTS Subjects (
                     semester INTEGER NOT NULL,
                     description TEXT)''')
 conn.execute('''CREATE TABLE IF NOT EXISTS Attendance (
-                    ROLLNO VARCHAR NOT NULL, 
-                    NAME TEXT NOT NULL, 
-                    Subject TEXT NOT NULL,
-                    Time TEXT NOT NULL,
-                    Date TEXT NOT NULL)''')
+                    rollno VARCHAR NOT NULL, 
+                    name TEXT NOT NULL, 
+                    subject TEXT NOT NULL,
+                    time TEXT NOT NULL,
+                    date TEXT NOT NULL)''')
 conn.commit()
 conn.close()
 
@@ -114,7 +115,7 @@ def markData(name, subject):
     conn = sqlite3.connect('information.db')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT roll_no, year FROM Students WHERE name=?", (name.upper(),))
+    cursor.execute("SELECT rollno, year FROM Students WHERE name=?", (name.upper(),))
     student = cursor.fetchone()
 
     if student is None:
@@ -139,7 +140,7 @@ def markData(name, subject):
         conn.close()
         return
 
-    cursor.execute("INSERT INTO Attendance (ROLLNO, NAME, Subject, Time, Date) VALUES (?, ?, ?, ?, ?)",
+    cursor.execute("INSERT INTO Attendance (rollno, name, subject, time, date) VALUES (?, ?, ?, ?, ?)",
                        (rollno, name.upper(), subject.upper(), dtString, today))
     conn.commit()
     print(f"Attendance marked for {name} in {subject} at {dtString} on {today}")
@@ -197,40 +198,99 @@ def filter_attendance():
     selected_date = data.get('date')
     month = data.get('month')
     subject = data.get('subject')
+    status_filter = data.get('status')  
 
     conn = sqlite3.connect('information.db')
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
-    query = "SELECT * FROM Attendance WHERE 1=1"
-    params = []
-
-    if selected_date:
-        query += " AND Date = ?"
-        params.append(selected_date)
+    conducted_dates_query = """
+        SELECT DISTINCT A.date 
+        FROM Attendance A 
+        WHERE 1=1
+    """
+    conducted_dates_params = []
 
     if month:
-        query += " AND strftime('%m', Date) = ?"
-        params.append(month.zfill(2))  
+        conducted_dates_query += " AND strftime('%m', A.date) = ?"
+        conducted_dates_params.append(month.zfill(2))
 
     if subject:
-        query += " AND Subject = ?"
-        params.append(subject)
+        conducted_dates_query += " AND A.subject = ?"
+        conducted_dates_params.append(subject)
 
-    cur.execute(query, params)
-    attendance_records = cur.fetchall()
+    cur.execute(conducted_dates_query, conducted_dates_params)
+    conducted_dates = [row["date"] for row in cur.fetchall()]
+
+    present_query = """
+        SELECT A.rollno, A.name, A.time, A.date, A.subject, 'Present' AS status
+        FROM Attendance A
+        WHERE 1=1
+    """
+    present_params = []
+
+    if selected_date:
+        present_query += " AND A.date = ?"
+        present_params.append(selected_date)
+
+    if month:
+        present_query += " AND strftime('%m', A.date) = ?"
+        present_params.append(month.zfill(2))
+
+    if subject:
+        present_query += " AND A.subject = ?"
+        present_params.append(subject)
+
+    cur.execute(present_query, present_params)
+    present_students = cur.fetchall()
+
+    absent_students = []
+    if selected_date:
+        absent_query = """
+            SELECT S.rollno, S.name, '-' AS time, ? AS date, Sub.subject, 'Absent' AS status
+            FROM Students S
+            CROSS JOIN (SELECT DISTINCT subject FROM Attendance) AS Sub
+            LEFT JOIN Attendance A 
+                ON S.rollno = A.rollno 
+                AND A.subject = Sub.subject
+                AND A.date = ?
+            WHERE A.rollno IS NULL
+        """
+        absent_params = [selected_date, selected_date]
+        
+        if subject:
+            absent_query += " AND Sub.subject = ?"
+            absent_params.append(subject)
+
+        cur.execute(absent_query, absent_params)
+        absent_students.extend(cur.fetchall())
+    else:
+        for class_date in conducted_dates:
+            absent_query = """
+                SELECT S.rollno, S.name, '-' AS time, ? AS date, Sub.subject, 'Absent' AS status
+                FROM Students S
+                CROSS JOIN (SELECT DISTINCT subject FROM Attendance) AS Sub
+                LEFT JOIN Attendance A 
+                    ON S.rollno = A.rollno 
+                    AND A.subject = Sub.subject
+                    AND A.date = ?
+                WHERE A.rollno IS NULL
+            """
+            absent_params = [class_date, class_date]
+
+            if subject:
+                absent_query += " AND Sub.subject = ?"
+                absent_params.append(subject)
+
+            cur.execute(absent_query, absent_params)
+            absent_students.extend(cur.fetchall())
+
     conn.close()
 
-    attendance_list = [
-        {
-            "rollno": row["ROLLNO"],
-            "name": row["NAME"],
-            "time": row["Time"],
-            "date": row["Date"],
-            "subject": row["Subject"]
-        } 
-        for row in attendance_records
-    ]
+    attendance_list = [dict(row) for row in present_students] + [dict(row) for row in absent_students]
+
+    if status_filter:
+        attendance_list = [entry for entry in attendance_list if entry["status"] == status_filter]
 
     return jsonify(attendance_list)
 
@@ -305,21 +365,20 @@ def teacher_login():
 
         conn = sqlite3.connect('information.db')
         cur = conn.cursor()
-        cur.execute("SELECT * FROM Teachers WHERE id=? AND password=?", (tid, password))
+        cur.execute("SELECT * FROM Teachers WHERE id=?", (tid,))
         teacher = cur.fetchone()
-        conn.commit()
         conn.close()
 
-        if teacher:
+        if teacher and bcrypt.checkpw(password.encode('utf-8'), teacher[5]):  
             session['teacher_name'] = teacher[1]
             session['dept'] = teacher[2]
             session['email'] = teacher[3]
             session['phn'] = teacher[4]
             return redirect(url_for('teacher_dashboard'))
         else:
-            return render_template('TeacherLogin.html',message="Invalid Teacher ID or Password")
+            return render_template('TeacherLogin.html', message="Invalid Teacher ID or Password")
 
-    return render_template('TeacherLogin.html',message="Please enter Teacher ID and Password")
+    return render_template('TeacherLogin.html', message="Please enter Teacher ID and Password")
 
 @app.route('/teacher_register', methods=['POST'])
 def teacher_register():
@@ -330,6 +389,8 @@ def teacher_register():
     phone_number = request.form.get('phone_number')
     password = request.form.get('password')
 
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
     conn = sqlite3.connect('information.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM Teachers WHERE id = ?", (tid,))
@@ -339,7 +400,7 @@ def teacher_register():
         return render_template('TeacherRegister.html', message="Teacher ID already exists. Please use a different ID.")
 
     cursor.execute("INSERT INTO Teachers (id, name, dept, email, phone_number, password) VALUES (?, ?, ?, ?, ?, ?)",
-                   (tid, name.upper(), dept.upper(), email, phone_number, password))
+                   (tid, name.upper(), dept.upper(), email, phone_number, hashed_password))
     conn.commit()
     conn.close()
 
@@ -371,20 +432,20 @@ def teacher_dashboard():
 
 
 #Student Functions
+
 @app.route('/student_login', methods=['GET', 'POST'])
 def student_login():
     if request.method == "POST":
-        roll_no = request.form.get('roll_no')
+        rollno = request.form.get('rollno')
         password = request.form.get('password')
 
         conn = sqlite3.connect('information.db')
         cur = conn.cursor()
-        cur.execute("SELECT * FROM Students WHERE roll_no=? AND password=?", (roll_no, password))
+        cur.execute("SELECT * FROM Students WHERE rollno=?", (rollno,))
         student = cur.fetchone()
-        conn.commit()
         conn.close()
 
-        if student:
+        if student and bcrypt.checkpw(password.encode('utf-8'), student[5]):  
             session['student_name'] = student[1]
             session['stu_roll'] = student[0]
             session['stu_branch'] = student[6]
@@ -392,9 +453,9 @@ def student_login():
             session['stu_phn'] = student[4]
             return redirect(url_for('student_dashboard'))
         else:
-            return render_template('StudentLogin.html',message="Invalid Roll Number or Password")
+            return render_template('StudentLogin.html', message="Invalid Roll Number or Password")
 
-    return render_template('StudentLogin.html',message="Please enter Roll Number and Password")
+    return render_template('StudentLogin.html', message="Please enter Roll Number and Password")
 
 @app.route('/student_register', methods=['GET', 'POST'])
 def student_register():
@@ -407,17 +468,19 @@ def student_register():
         phone_number = request.form.get('phone_number')
         password = request.form.get('password')
 
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
         conn = sqlite3.connect('information.db')
         cursor = conn.cursor()
 
-        cursor.execute("SELECT roll_no FROM Students WHERE roll_no = ?", (rollno,))
+        cursor.execute("SELECT rollno FROM Students WHERE rollno = ?", (rollno,))
         existing_rollno = cursor.fetchone()
         if existing_rollno:
             conn.close()
             return render_template('StudentRegistration.html', message="Roll Number already exists. Please use a different Roll Number.")
 
-        cursor.execute("INSERT INTO Students (roll_no, name, year, email, phone_number, password, branch) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                       (rollno, name.upper(), year, email, phone_number, password, branch.upper()))
+        cursor.execute("INSERT INTO Students (rollno, name, year, email, phone_number, password, branch) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (rollno, name.upper(), year, email, phone_number, hashed_password, branch.upper()))
         conn.commit()
         conn.close()
 
@@ -425,6 +488,7 @@ def student_register():
         return render_template('StudentRegistration.html', message="Student Registered Successfully!")
 
     return render_template('StudentRegistration.html')
+
 
 @app.route("/student_dashboard")
 def student_dashboard():
@@ -439,13 +503,13 @@ def student_dashboard():
     conn = sqlite3.connect("information.db")
     cursor = conn.cursor()
 
-    cursor.execute("SELECT DISTINCT Subject FROM Attendance")
+    cursor.execute("SELECT DISTINCT subject FROM Attendance")
     all_subjects = [row[0] for row in cursor.fetchall()] 
 
-    cursor.execute("SELECT Subject, COUNT(*) FROM Attendance WHERE NAME = ? GROUP BY Subject", (stu_name.upper(),))
+    cursor.execute("SELECT subject, COUNT(*) FROM Attendance WHERE NAME = ? GROUP BY subject", (stu_name.upper(),))
     attendance_data = dict(cursor.fetchall())
 
-    cursor.execute("SELECT Subject, COUNT(*) FROM Attendance GROUP BY Subject")
+    cursor.execute("SELECT subject, COUNT(*) FROM Attendance GROUP BY subject")
     total_classes_dict = dict(cursor.fetchall())  
 
     conn.close()
@@ -483,7 +547,7 @@ def student_details():
     conn = sqlite3.connect("information.db") 
     cursor = conn.cursor()
     
-    cursor.execute("SELECT roll_no, name, year, email, phone_number, branch FROM Students")
+    cursor.execute("SELECT rollno, name, year, email, phone_number, branch FROM Students")
     students = cursor.fetchall()
     
     conn.close()
@@ -495,42 +559,63 @@ def student_details():
     
     return jsonify(student_list)
 
-#Function to capture student face while registering
-@app.route('/open_camera',methods=['POST'])
+
+@app.route('/open_camera', methods=['POST'])
 def open_camera():
     name1 = request.form.get('name')
-    name2 = request.form.get('rollno')
-    print(name1)
-    print(name2)
-    if not name1 or not name2:
+    rollno = request.form.get('rollno')
+
+    if not name1 or not rollno:
         return jsonify({"status": "failed", "message": "Missing form data"}), 400
-    print('hi')
-    cam = cv2.VideoCapture(0)
-    cv2.namedWindow("Press Space to Capture Image")
+
+    cap = cv2.VideoCapture(0)  
+    cv2.namedWindow("Face Capture")
 
     while True:
-        ret, frame = cam.read()
+        ret, frame = cap.read()
         if not ret:
-            print("failed to grab frame")
-            break
-        cv2.imshow("Press Space to Capture Image", frame)
+            return jsonify({"status": "failed", "message": "Failed to grab frame"}), 500
 
-        k = cv2.waitKey(1)
-        if k%256 == 27: #ESC Key pressed
-            print("Closing Camera...")
-            break
-        elif k%256 == 32: #Space key Pressed
-            img_name = "Training images/"+name1+".png"
-            cv2.imwrite(img_name, frame)
-            print(f"Image {img_name} captured!")
-            cam.release()
-            cv2.destroyAllWindows()
-            return jsonify({"status": "captured"})
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        face_locs = face_recognition.face_locations(rgb_frame, model="hog")
 
-    cam.release()
+        if face_locs:
+            y1, x2, y2, x1 = face_locs[0]
+            face_width = x2 - x1
+            face_height = y2 - y1
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            if face_width < 100 or face_height < 100:
+                message = "Face too far, come closer..."
+                color = (0, 0, 255)  # Red warning
+            else:
+                message = "Press SPACE to capture"
+                color = (0, 255, 0)  # Green when ready
+
+            cv2.putText(frame, message, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+        else:
+            cv2.putText(frame, "No face detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+        cv2.imshow("Face Capture", frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == 32 and face_locs:  # Spacebar to capture
+            if face_width >= 100 and face_height >= 100:
+                img_name = f"Training images/{name1}_{rollno}.png"
+                cv2.imwrite(img_name, frame)
+                cap.release()
+                cv2.destroyAllWindows()
+                return jsonify({"status": "captured", "image_path": img_name})
+            else:
+                print("Face too small, move closer.")
+        elif key == 27:  # ESC to exit
+            break
+
+    cap.release()
     cv2.destroyAllWindows()
-    return jsonify({"status": "failed"})
-
+    return jsonify({"status": "failed", "message": "No image captured"})
 
 #Manage Subject Functions
 
