@@ -1,4 +1,4 @@
-from flask import Flask,render_template,request,flash,jsonify,redirect,url_for,session,send_file,make_response
+from flask import Flask,render_template,request,jsonify,redirect,url_for,session,send_file,make_response
 import pickle
 import pandas as pd
 import cv2
@@ -9,14 +9,13 @@ import io
 import time
 import random
 import re
-import pickle
 from datetime import datetime
 from datetime import date
 import sqlite3
 import bcrypt
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'f8b2c7d1a9e0f3b6d5c4a2e1f9b8d6c3a7e5f1c2d9a4b6e8f0d3c5b7a2e9f1d4'
 marked_students = set()
 
 # Database setup
@@ -198,99 +197,41 @@ def filter_attendance():
     selected_date = data.get('date')
     month = data.get('month')
     subject = data.get('subject')
-    status_filter = data.get('status')  
 
     conn = sqlite3.connect('information.db')
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
-    conducted_dates_query = """
-        SELECT DISTINCT A.date 
-        FROM Attendance A 
-        WHERE 1=1
-    """
-    conducted_dates_params = []
-
-    if month:
-        conducted_dates_query += " AND strftime('%m', A.date) = ?"
-        conducted_dates_params.append(month.zfill(2))
-
-    if subject:
-        conducted_dates_query += " AND A.subject = ?"
-        conducted_dates_params.append(subject)
-
-    cur.execute(conducted_dates_query, conducted_dates_params)
-    conducted_dates = [row["date"] for row in cur.fetchall()]
-
-    present_query = """
-        SELECT A.rollno, A.name, A.time, A.date, A.subject, 'Present' AS status
-        FROM Attendance A
-        WHERE 1=1
-    """
-    present_params = []
+    query = "SELECT * FROM Attendance WHERE 1=1"
+    params = []
 
     if selected_date:
-        present_query += " AND A.date = ?"
-        present_params.append(selected_date)
+        query += " AND Date = ?"
+        params.append(selected_date)
 
     if month:
-        present_query += " AND strftime('%m', A.date) = ?"
-        present_params.append(month.zfill(2))
+        query += " AND strftime('%m', Date) = ?"
+        params.append(month.zfill(2))  
 
     if subject:
-        present_query += " AND A.subject = ?"
-        present_params.append(subject)
+        query += " AND Subject = ?"
+        params.append(subject)
 
-    cur.execute(present_query, present_params)
-    present_students = cur.fetchall()
-
-    absent_students = []
-    if selected_date:
-        absent_query = """
-            SELECT S.rollno, S.name, '-' AS time, ? AS date, Sub.subject, 'Absent' AS status
-            FROM Students S
-            CROSS JOIN (SELECT DISTINCT subject FROM Attendance) AS Sub
-            LEFT JOIN Attendance A 
-                ON S.rollno = A.rollno 
-                AND A.subject = Sub.subject
-                AND A.date = ?
-            WHERE A.rollno IS NULL
-        """
-        absent_params = [selected_date, selected_date]
-        
-        if subject:
-            absent_query += " AND Sub.subject = ?"
-            absent_params.append(subject)
-
-        cur.execute(absent_query, absent_params)
-        absent_students.extend(cur.fetchall())
-    else:
-        for class_date in conducted_dates:
-            absent_query = """
-                SELECT S.rollno, S.name, '-' AS time, ? AS date, Sub.subject, 'Absent' AS status
-                FROM Students S
-                CROSS JOIN (SELECT DISTINCT subject FROM Attendance) AS Sub
-                LEFT JOIN Attendance A 
-                    ON S.rollno = A.rollno 
-                    AND A.subject = Sub.subject
-                    AND A.date = ?
-                WHERE A.rollno IS NULL
-            """
-            absent_params = [class_date, class_date]
-
-            if subject:
-                absent_query += " AND Sub.subject = ?"
-                absent_params.append(subject)
-
-            cur.execute(absent_query, absent_params)
-            absent_students.extend(cur.fetchall())
-
+    query += " ORDER BY Date ASC"
+    cur.execute(query, params)
+    attendance_records = cur.fetchall()
     conn.close()
 
-    attendance_list = [dict(row) for row in present_students] + [dict(row) for row in absent_students]
-
-    if status_filter:
-        attendance_list = [entry for entry in attendance_list if entry["status"] == status_filter]
+    attendance_list = [
+        {
+            "rollno": row["ROLLNO"],
+            "name": row["NAME"],
+            "time": row["Time"],
+            "date": row["Date"],
+            "subject": row["Subject"]
+        } 
+        for row in attendance_records
+    ]
 
     return jsonify(attendance_list)
 
@@ -438,7 +379,6 @@ def student_login():
     if request.method == "POST":
         rollno = request.form.get('rollno')
         password = request.form.get('password')
-
         conn = sqlite3.connect('information.db')
         cur = conn.cursor()
         cur.execute("SELECT * FROM Students WHERE rollno=?", (rollno,))
@@ -483,6 +423,7 @@ def student_register():
                        (rollno, name.upper(), year, email, phone_number, hashed_password, branch.upper()))
         conn.commit()
         conn.close()
+        print(f"Hashed Password: {hashed_password}")
 
         update_encodings() 
         return render_template('StudentRegistration.html', message="Student Registered Successfully!")
@@ -560,62 +501,97 @@ def student_details():
     return jsonify(student_list)
 
 
-@app.route('/open_camera', methods=['POST'])
+# @app.route('/open_camera', methods=['POST'])
+# def open_camera():
+#     name1 = request.form.get('name')
+#     rollno = request.form.get('rollno')
+
+#     if not name1 or not rollno:
+#         return jsonify({"status": "failed", "message": "Missing form data"}), 400
+
+#     cap = cv2.VideoCapture(0)  
+#     cv2.namedWindow("Face Capture")
+
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             return jsonify({"status": "failed", "message": "Failed to grab frame"}), 500
+
+#         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         face_locs = face_recognition.face_locations(rgb_frame, model="hog")
+
+#         if face_locs:
+#             y1, x2, y2, x1 = face_locs[0]
+#             face_width = x2 - x1
+#             face_height = y2 - y1
+
+#             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+#             if face_width < 100 or face_height < 100:
+#                 message = "Face too far, come closer..."
+#                 color = (0, 0, 255)  # Red warning
+#             else:
+#                 message = "Press SPACE to capture"
+#                 color = (0, 255, 0)  # Green when ready
+
+#             cv2.putText(frame, message, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+#         else:
+#             cv2.putText(frame, "No face detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+#         cv2.imshow("Face Capture", frame)
+
+#         key = cv2.waitKey(1) & 0xFF
+#         if key == 32 and face_locs:  # Spacebar to capture
+#             if face_width >= 100 and face_height >= 100:
+#                 img_name = f"Training images/{name1}_{rollno}.png"
+#                 cv2.imwrite(img_name, frame)
+#                 cap.release()
+#                 cv2.destroyAllWindows()
+#                 return jsonify({"status": "captured", "image_path": img_name})
+#             else:
+#                 print("Face too small, move closer.")
+#         elif key == 27:  # ESC to exit
+#             break
+
+#     cap.release()
+#     cv2.destroyAllWindows()
+#     return jsonify({"status": "failed", "message": "No image captured"})
+#Function to capture student face while registering
+@app.route('/open_camera',methods=['POST'])
 def open_camera():
     name1 = request.form.get('name')
-    rollno = request.form.get('rollno')
-
-    if not name1 or not rollno:
+    name2 = request.form.get('rollno')
+    print(name1)
+    print(name2)
+    if not name1 or not name2:
         return jsonify({"status": "failed", "message": "Missing form data"}), 400
-
-    cap = cv2.VideoCapture(0)  
-    cv2.namedWindow("Face Capture")
+    print('hi')
+    cam = cv2.VideoCapture(0)
+    cv2.namedWindow("Press Space to Capture Image")
 
     while True:
-        ret, frame = cap.read()
+        ret, frame = cam.read()
         if not ret:
-            return jsonify({"status": "failed", "message": "Failed to grab frame"}), 500
-
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        face_locs = face_recognition.face_locations(rgb_frame, model="hog")
-
-        if face_locs:
-            y1, x2, y2, x1 = face_locs[0]
-            face_width = x2 - x1
-            face_height = y2 - y1
-
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-            if face_width < 100 or face_height < 100:
-                message = "Face too far, come closer..."
-                color = (0, 0, 255)  # Red warning
-            else:
-                message = "Press SPACE to capture"
-                color = (0, 255, 0)  # Green when ready
-
-            cv2.putText(frame, message, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-
-        else:
-            cv2.putText(frame, "No face detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-        cv2.imshow("Face Capture", frame)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key == 32 and face_locs:  # Spacebar to capture
-            if face_width >= 100 and face_height >= 100:
-                img_name = f"Training images/{name1}_{rollno}.png"
-                cv2.imwrite(img_name, frame)
-                cap.release()
-                cv2.destroyAllWindows()
-                return jsonify({"status": "captured", "image_path": img_name})
-            else:
-                print("Face too small, move closer.")
-        elif key == 27:  # ESC to exit
+            print("failed to grab frame")
             break
+        cv2.imshow("Press Space to Capture Image", frame)
 
-    cap.release()
+        k = cv2.waitKey(1)
+        if k%256 == 27: #ESC Key pressed
+            print("Closing Camera...")
+            break
+        elif k%256 == 32: #Space key Pressed
+            img_name = "Training images/"+name1+".png"
+            cv2.imwrite(img_name, frame)
+            print(f"Image {img_name} captured!")
+            cam.release()
+            cv2.destroyAllWindows()
+            return jsonify({"status": "captured"})
+
+    cam.release()
     cv2.destroyAllWindows()
-    return jsonify({"status": "failed", "message": "No image captured"})
+    return jsonify({"status": "failed"})
 
 #Manage Subject Functions
 
