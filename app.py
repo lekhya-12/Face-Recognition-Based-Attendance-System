@@ -45,7 +45,8 @@ conn.execute('''CREATE TABLE IF NOT EXISTS Attendance (
                     name TEXT NOT NULL, 
                     subject TEXT NOT NULL,
                     time TEXT NOT NULL,
-                    date TEXT NOT NULL)''')
+                    date TEXT NOT NULL,
+                    session_id INTEGER NOT NULL)''')
 conn.commit()
 conn.close()
 
@@ -53,9 +54,22 @@ conn.close()
 
 @app.route("/markattendance", methods=["GET", "POST"])
 def markattendance():
-    global marked_students  
+    global marked_students
 
     if request.method == "POST":
+
+        conn = sqlite3.connect('information.db')
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT MAX(session_id) FROM Attendance")
+        max_session_id = cursor.fetchone()[0]
+
+        if max_session_id is None:
+            session_id = 1
+        else:
+            session_id = int(max_session_id) + 1  
+        conn.close()
+
         with open('encodings.pickle', 'rb') as f:
             encodeListKnown, classNames = pickle.load(f)
 
@@ -83,7 +97,7 @@ def markattendance():
                 if faceDis[matchIndex] < threshold:
                     name = classNames[matchIndex].upper()
                     if (name, subject) not in marked_students:
-                        markData(name, subject)
+                        markData(name, subject, session_id)
                         marked_students.add((name, subject)) 
                 else:
                     name = "Unknown"
@@ -105,7 +119,7 @@ def markattendance():
     else:
         return render_template('MarkAttendance.html')
 
-def markData(name, subject):
+def markData(name, subject, session_id):
     print("The Attended Person is", name)
     now = datetime.now()
     dtString = now.strftime('%H:%M')
@@ -139,8 +153,8 @@ def markData(name, subject):
         conn.close()
         return
 
-    cursor.execute("INSERT INTO Attendance (rollno, name, subject, time, date) VALUES (?, ?, ?, ?, ?)",
-                       (rollno, name.upper(), subject.upper(), dtString, today))
+    cursor.execute("INSERT INTO Attendance (rollno, name, subject, time, date, session_id) VALUES (?, ?, ?, ?, ?, ?)",
+                       (rollno, name.upper(), subject.upper(), dtString, today, session_id))
     conn.commit()
     print(f"Attendance marked for {name} in {subject} at {dtString} on {today}")
 
@@ -423,7 +437,6 @@ def student_register():
                        (rollno, name.upper(), year, email, phone_number, hashed_password, branch.upper()))
         conn.commit()
         conn.close()
-        print(f"Hashed Password: {hashed_password}")
 
         update_encodings() 
         return render_template('StudentRegistration.html', message="Student Registered Successfully!")
@@ -450,7 +463,7 @@ def student_dashboard():
     cursor.execute("SELECT subject, COUNT(*) FROM Attendance WHERE NAME = ? GROUP BY subject", (stu_name.upper(),))
     attendance_data = dict(cursor.fetchall())
 
-    cursor.execute("SELECT subject, COUNT(*) FROM Attendance GROUP BY subject")
+    cursor.execute("SELECT subject, COUNT(DISTINCT session_id) FROM Attendance GROUP BY subject")
     total_classes_dict = dict(cursor.fetchall())  
 
     conn.close()
@@ -566,7 +579,6 @@ def open_camera():
     print(name2)
     if not name1 or not name2:
         return jsonify({"status": "failed", "message": "Missing form data"}), 400
-    print('hi')
     cam = cv2.VideoCapture(0)
     cv2.namedWindow("Press Space to Capture Image")
 
